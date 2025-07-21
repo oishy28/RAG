@@ -46,7 +46,7 @@ def build_prompt(query, retrieved_chunks):
 if __name__ == "__main__":
     index_path = "embeddings/faiss_index/index.faiss"
     chunks_path = "embeddings/faiss_index/chunks.pkl"
-    model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    model_name = "intfloat/multilingual-e5-base"
 
     print("\n🔄 Loading FAISS index and chunks...")
     model = SentenceTransformer(model_name)
