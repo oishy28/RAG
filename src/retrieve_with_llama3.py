@@ -34,13 +34,13 @@ def retrieve_relevant_chunks(query, model, index, chunks, k=10):
 def build_prompt(query, retrieved_chunks):
     joined_chunks = "\n\n".join([f"[Chunk {i+1}] {chunk}" for i, chunk in enumerate(retrieved_chunks)])
     prompt = f"""
-প্রশ্ন: {query}
+    Sources:
+    {joined_chunks}
+    Question: {query}
+    Answer this question in one line using only the above sources, and reply in the same language the question was asked. Do not add anything from your own knowledge or assumptions.
+    """
 
-তথ্যসূত্র:
-{joined_chunks}
 
-উত্তরটি এক লাইনে দাও এবং শুধু উপরের অংশের তথ্য ব্যবহার করো। নিজের ধারণা থেকে কিছু যোগ করো না।
-"""
     return prompt.strip()
 
 if __name__ == "__main__":

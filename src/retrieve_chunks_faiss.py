@@ -1,8 +1,9 @@
+
+
 import pickle
 import faiss
 import numpy as np
 import re
-import ollama
 from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -28,7 +29,7 @@ def retrieve_relevant_chunks(query, model, index, chunks, k=20, hybrid_top_k=10)
     pattern_top_indices = np.argsort(pattern_scores)[::-1][:k]
     pattern_chunks = [(i, chunks[i]) for i in pattern_top_indices]
 
-    # Step 3: Token + phrase boost
+    # Step 3: Token + phrase boost (no hardcoded terms)
     query_norm = normalize(query)
     query_tokens = set(query_norm.split())
     phrase_boost = {}
@@ -54,30 +55,8 @@ def retrieve_relevant_chunks(query, model, index, chunks, k=20, hybrid_top_k=10)
     ranked = sorted(combined.items(), key=lambda x: x[1][1], reverse=True)
     return [text for _, (text, _) in ranked[:hybrid_top_k]]
 
-# --------- Mistral Answer Generation ----------
-def build_prompt(query, top_chunks):
-    return f"""
-### Source Chunks (may include MCQs or structured text):
-{''.join(f"[Chunk {i+1}] {chunk.strip()}\n" for i, chunk in enumerate(top_chunks))}
 
-### Question:
-{query}
-
-### Instructions:
-- The answer is expected to be a character or entity **mentioned in the source chunks**, not inferred from mythology or general knowledge.
-- Use only the information from the chunks above.
-- Respond **in the same language** as the question.
-- Be **short and accurate**.
-- If the answer is found as part of an MCQ or numbered entry, use it directly.
-- If nothing relevant is found, give a precise answer based on your analysis.
-""".strip()
-
-
-def answer_with_mistral(prompt):
-    response = ollama.chat(model='mistral', messages=[{"role": "user", "content": prompt}])
-    return response['message']['content']
-
-# --------- CLI Main ----------
+# --------- Main for CLI Testing ----------
 if __name__ == "__main__":
     index_path = "embeddings/faiss_index/index.faiss"
     chunks_path = "embeddings/faiss_index/chunks.pkl"
@@ -93,13 +72,7 @@ if __name__ == "__main__":
         query = input("\n❓ Enter your question (Bangla or English):\n> ")
         if query.strip().lower() in ["exit", "quit", "q"]:
             break
-
         top_chunks = retrieve_relevant_chunks(query, model, index, chunks)
-
         print("\n🔍 Top Relevant Chunks:\n")
         for i, chunk in enumerate(top_chunks, 1):
             print(f"[Chunk {i}] {chunk.strip()}\n---")
-
-        prompt = build_prompt(query, top_chunks)
-        print("\n🧠 Mistral's Answer:\n")
-        print(answer_with_mistral(prompt))

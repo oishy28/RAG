@@ -1,11 +1,16 @@
-def load_bangla_text(file_path):
-    with open(file_path, "r", encoding="utf-8") as f:
-        text = f.read()
-    return text
+import pickle
 
-# Example usage
-file_path = "outputs/clean_bangla_corpus1.txt"
-bangla_text = load_bangla_text(file_path)
+chunks_path = "embeddings/faiss_index/chunks.pkl"
+search_term = "শিক্ষার ব্রত গ্রহণ করে"
 
-print("🔍 First 500 characters:")
-print(bangla_text[:500])
+with open(chunks_path, "rb") as f:
+    chunks = pickle.load(f)
+
+matches = [(i, chunk) for i, chunk in enumerate(chunks) if search_term in chunk]
+
+if matches:
+    print(f"✅ Found {len(matches)} chunk(s) containing '{search_term}':\n")
+    for i, chunk in matches:
+        print(f"[Chunk {i}]\n{chunk.strip()}\n{'-'*60}\n")
+else:
+    print(f"❌ No chunks found containing '{search_term}'")
