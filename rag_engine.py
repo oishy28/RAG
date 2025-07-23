@@ -1,3 +1,4 @@
+# rag_engine.py
 import pickle
 import faiss
 import numpy as np
@@ -7,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# --------- Helpers ----------
+# ---------- Normalize ----------
 def normalize(text):
     return re.sub(r"[^\u0980-\u09FFa-zA-Z0-9]", "", text.lower())
 
@@ -18,30 +19,22 @@ def keyword_match_score(query, chunks):
     return cosine_scores
 
 def retrieve_relevant_chunks(query, model, index, chunks, k=20, hybrid_top_k=10):
-    # Step 1: Semantic vector search
     query_vec = model.encode([f"query: {query}"])
     D, I = index.search(np.array(query_vec), k)
     semantic_chunks = [(i, chunks[i]) for i in I[0]]
-
-    # Step 2: Keyword cosine similarity
     pattern_scores = keyword_match_score(query, chunks)
     pattern_top_indices = np.argsort(pattern_scores)[::-1][:k]
     pattern_chunks = [(i, chunks[i]) for i in pattern_top_indices]
-
-    # Step 3: Token + phrase boost
     query_norm = normalize(query)
     query_tokens = set(query_norm.split())
     phrase_boost = {}
-
     for i, chunk in enumerate(chunks):
         chunk_norm = normalize(chunk)
         score = sum(1 for token in query_tokens if token in chunk_norm)
         if query_norm in chunk_norm:
-            score += 3  # full string bonus
+            score += 3
         if score > 0:
             phrase_boost[i] = score
-
-    # Step 4: Merge with boosting
     combined = {}
     for i, text in semantic_chunks:
         combined[i] = (text, 1.0)
@@ -49,12 +42,9 @@ def retrieve_relevant_chunks(query, model, index, chunks, k=20, hybrid_top_k=10)
         combined[i] = (text, combined.get(i, (text, 0))[1] + 1.0)
     for i, score in phrase_boost.items():
         combined[i] = (chunks[i], combined.get(i, (chunks[i], 0))[1] + score)
-
-    # Sort and return
     ranked = sorted(combined.items(), key=lambda x: x[1][1], reverse=True)
     return [text for _, (text, _) in ranked[:hybrid_top_k]]
 
-# --------- Mistral Answer Generation ----------
 def build_prompt(query, top_chunks):
     return f"""
 ### Source Chunks (may include MCQs or structured text):
@@ -71,34 +61,23 @@ def build_prompt(query, top_chunks):
 - If nothing relevant is found, give a precise answer based on your analysis.
 """.strip()
 
-
 def answer_with_mistral(prompt):
     response = ollama.chat(model='mistral', messages=[{"role": "user", "content": prompt}])
     return response['message']['content']
 
-# --------- CLI Main ----------
-if __name__ == "__main__":
-    index_path = "embeddings/faiss_index/index.faiss"
-    chunks_path = "embeddings/faiss_index/chunks.pkl"
-    model_name = "intfloat/multilingual-e5-base"
+# Load once at the top level
+print("🔄 Loading index and model...")
+index = faiss.read_index("embeddings/faiss_index/index.faiss")
+with open("embeddings/faiss_index/chunks.pkl", "rb") as f:
+    chunks = pickle.load(f)
+model = SentenceTransformer("intfloat/multilingual-e5-base")
 
-    print("🔄 Loading FAISS index and chunks...")
-    with open(chunks_path, "rb") as f:
-        chunks = pickle.load(f)
-    index = faiss.read_index(index_path)
-    model = SentenceTransformer(model_name)
-
-    while True:
-        query = input("\n❓ Enter your question (Bangla or English):\n> ")
-        if query.strip().lower() in ["exit", "quit", "q"]:
-            break
-
-        top_chunks = retrieve_relevant_chunks(query, model, index, chunks)
-
-        print("\n🔍 Top Relevant Chunks:\n")
-        for i, chunk in enumerate(top_chunks, 1):
-            print(f"[Chunk {i}] {chunk.strip()}\n---")
-
-        prompt = build_prompt(query, top_chunks)
-        print("\n🧠 Mistral's Answer:\n")
-        print(answer_with_mistral(prompt))
+# Final function to use in API
+def get_rag_answer(query):
+    top_chunks = retrieve_relevant_chunks(query, model, index, chunks)
+    prompt = build_prompt(query, top_chunks)
+    answer = answer_with_mistral(prompt)
+    return {
+        "answer": answer,
+        "top_chunks": top_chunks
+    }
