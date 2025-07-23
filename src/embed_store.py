@@ -71,7 +71,7 @@ def save_faiss_index(embeddings, chunks, index_path, chunks_path):
     print(f"✅ Chunks saved to: {chunks_path}")
 
 if __name__ == "__main__":
-    input_path = "outputs/clean_bangla_corpus2.txt"
+    input_path = "outputs/test.txt"
     index_path = "embeddings/faiss_index/index.faiss"
     chunks_path = "embeddings/faiss_index/chunks.pkl"
 

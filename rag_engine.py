@@ -54,15 +54,16 @@ def build_prompt(query, top_chunks):
 {query}
 
 ### Instructions:
-- Analyze the source chunks and provide a concise answer from them.
+- Read the bangla source chunks and provide a concise answer to the queston from them.
 - Respond **in the same language** as the question.
 - Be **short and accurate**.
-- If the answer is found as part of an MCQ or numbered entry, use it directly.
+- If the answer is found as part of an MCQ or numbered entry, use it directly in one word if possible.
 - If nothing relevant is found, give a precise answer based on your analysis.
 """.strip()
 
 def answer_with_mistral(prompt):
-    response = ollama.chat(model='mistral', messages=[{"role": "user", "content": prompt}])
+    # response = ollama.chat(model='mistral', messages=[{"role": "user", "content": prompt}])
+    response = ollama.chat(model='gemma:2b', messages=[{"role": "user", "content": prompt}])
     return response['message']['content']
 
 # Load once at the top level
